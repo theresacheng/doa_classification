@@ -6,9 +6,12 @@ import pyreadr
 import numpy as np
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
-from sklearn.svm import LinearSVC
+from sklearn.model_selection import LeaveOneOut, train_test_split, GridSearchCV, cross_val_score
+loo = LeaveOneOut()
+from sklearn.svm import LinearSVC, SVC
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.datasets import base
+
 # from sklearn.pipeline import Pipeline
 
 ### LOAD DATA ###
@@ -32,30 +35,54 @@ for a, b in full_subject_ids_raw[1:len(full_subject_ids_raw)]:
     full_subject_ids.append(b)
 
 # Load behavioral data
-beh =  pyreadr.read_r(beh_path)[None]
+beh = pyreadr.read_r(beh_path)[None]
 
 # Load within and between community connectivity rsfc MRI data
 comm_conns_file = open(comm_conns_path, "r+")
 comm_conns = list(csv.reader(comm_conns_file, delimiter='\t'))
 
 # Create dataframe for adversity classification
-data = comm_conns[1:len(comm_conns)]
-feature_names = list(comm_conns[0])
 target_names = 'maltreatment'
-target = list(beh.maltreatment)
+feature_names = list(comm_conns[0])
+data = list(comm_conns[1:len(comm_conns)])
 
-classify_adv_df = sklearn.datasets.base.Bunch(target_names=target_names,
-                                              feature_names=feature_names,
-                                              target=target,
-                                              data=data)
+# exclude subject ids from the data
+target = np.asarray(beh.maltreatment)
+
+classify_adv_df = base.Bunch(target_names=target_names,
+                             feature_names=feature_names,
+                             target=target,
+                             data=data)
 
 # Train and test classifier
 
+# Create splits with leave-one-out cross validation
+loo.get_n_splits(classify_adv_df.data)
 
-# Create dataframe for exposure type analysis
+for row in data[:2]:
+    row.split(",")
+    print(row)
+    temp = row[:-1]
+    print(temp)
+
+for train_index, test_index in loo.split(classify_adv_df.data):
+    print("TRAIN:", train_index, "TEST:", test_index)
+    X_train, X_test = classify_adv_df.data[train_index], classify_adv_df.data[test_index]
+    y_train, y_test = classify_adv_df.target[train_index], classify_adv_df.target[test_index]
+    print(X_train, X_test, y_train, y_test)
+
+# Need to do this next: Create dataframe for exposure type analysis
 # Note that fewer subjects are used here -- those with unspecified forms of maltreatment are removed
 
+# Specify the hyperparameter space, test code here:
+# parameters = {'SVM__C':[1, 10, 100],
+#               'SVM__gamma':[0.1, 0.01]}
+#
+# c_space = np.logspace(-5, 8, 15)
+# param_grid = {'C': c_space, 'penalty': ['l1', 'l2']}
+# temp = GridSearchCV(svc, param_grid, cv = 5)
 
-# temporarily to see how the bunch object is structured
-# import sklearn.datasets
-# wine = sklearn.datasets.load_wine()
+# fit models
+svc = LinearSVC()
+
+svc.fit(X_train, y_train)
