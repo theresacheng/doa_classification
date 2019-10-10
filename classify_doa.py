@@ -356,96 +356,105 @@ if run_permutation == True:
     plt.show()
     plt.savefig('adv_permutation_accuracies.png')
 
-    # ### ABUSE
-    # for i in range(10):
-    #     idx = np.random.permutation(len(classify_abuse_df.target))
-    #     y = classify_abuse_df.target[idx]
-    #
-    #     shuffled_abuse_df = classify_abuse_df
-    #     shuffled_abuse_df.target = y
-    #
-    #     y_pred_abuse = []
-    #     y_test_abuse = []
-    #
+    ### ABUSE
+    for i in range(10):
+        idx = np.random.permutation(len(classify_abuse_df.target))
+        y = classify_abuse_df.target[idx]
 
-    #     for train_index, test_index in loo.split(shuffled_abuse_df.data):
-    #         print("TRAIN:", train_index, "TEST:", test_index)
-    #         X_train, X_test = shuffled_abuse_df.data[train_index], shuffled_abuse_df.data[test_index]
-    #         y_train, y_test = shuffled_abuse_df.target[train_index], shuffled_abuse_df.target[test_index]
-    #         svc.fit(X_train, y_train)
-    #         y_pred_abuse.append(svc.predict(X_test))
-    #         y_test_abuse.append(y_test)
-    #
-    #     abuse_tn, abuse_fp, abuse_fn, abuse_tp = confusion_matrix(y_test_abuse, y_pred_abuse).ravel()
-    #     pred_abuse_accuracy = (abuse_tn + abuse_tp) / (abuse_tn + abuse_tp + abuse_fn + abuse_fp)
-    #
-    #     all_abuse_accuracies.append(pred_abuse_accuracy)
-    #
-    # # plot a distribution of accuracy values
-    # plt.hist(all_abuse_accuracies, bins='auto')
-    # plt.show()
-    # plt.savefig('abuse_permutation_accuracies.png')
-    #
-    # ### NEGLECT
-    # for i in range(1000):
-    #     idx = np.random.permutation(len(classify_neglect_df.target))
-    #     y = classify_neglect_df.target[idx]
-    #
-    #     shuffled_neglect_df = classify_neglect_df
-    #     shuffled_neglect_df.target = y
-    #
-    #     y_pred_neglect = []
-    #     y_test_neglect = []
-    #
-    #     for train_index, test_index in loo.split(shuffled_neglect_df.data):
-    #         print("TRAIN:", train_index, "TEST:", test_index)
-    #         X_train, X_test = shuffled_neglect_df.data[train_index], shuffled_neglect_df.data[test_index]
-    #         y_train, y_test = shuffled_neglect_df.target[train_index], shuffled_neglect_df.target[test_index]
-    #         svc.fit(X_train, y_train)
-    #         y_pred_neglect.append(svc.predict(X_test))
-    #         y_test_neglect.append(y_test)
-    #
-    #     neglect_tn, neglect_fp, neglect_fn, neglect_tp = confusion_matrix(y_test_neglect, y_pred_neglect).ravel()
-    #     pred_neglect_accuracy = (neglect_tn + neglect_tp) / (neglect_tn + neglect_tp + neglect_fn + neglect_fp)
-    #
-    #     all_neglect_accuracies.append(pred_neglect_accuracy)
-    #
-    # # plot a distribution of accuracy values
-    # plt.hist(all_neglect_accuracies, bins='auto')
-    # plt.show()
-    # plt.savefig('neglect_permutation_accuracies.png')
-    #
-    # ## BOTH
-    # for i in range(1000):
-    #     idx = np.random.permutation(len(classify_both_df.target))
-    #     y = classify_both_df.target[idx]
-    #
-    #     shuffled_both_df = classify_both_df
-    #     shuffled_both_df.target = y
-    #
-    #     y_pred_both = []
-    #     y_test_both = []
-    #
-    #     for train_index, test_index in loo.split(shuffled_both_df.data):
-    #         print("TRAIN:", train_index, "TEST:", test_index)
-    #         X_train, X_test = shuffled_both_df.data[train_index], shuffled_both_df.data[test_index]
-    #         y_train, y_test = shuffled_both_df.target[train_index], shuffled_both_df.target[test_index]
-    #         svc.fit(X_train, y_train)
-    #         y_pred_both.append(svc.predict(X_test))
-    #         y_test_both.append(y_test)
-    #
-    #     both_tn, both_fp, both_fn, both_tp = confusion_matrix(y_test_both, y_pred_both).ravel()
-    #     pred_both_accuracy = (both_tn + both_tp) / (both_tn + both_tp + both_fn + both_fp)
-    #
-    #     all_both_accuracies.append(pred_both_accuracy)
-    #
-    # # plot a distribution of accuracy values
-    # plt.hist(all_both_accuracies, bins='auto')
-    # plt.show()
-    # plt.savefig('both_permutation_accuracies.png')
+        shuffled_abuse_df = classify_abuse_df
+        shuffled_abuse_df.target = y
+
+        y_pred_abuse = []
+        y_test_abuse = []
+
+
+        for train_index, test_index in loo.split(shuffled_abuse_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = shuffled_abuse_df.data[train_index], shuffled_abuse_df.data[test_index]
+            y_train, y_test = shuffled_abuse_df.target[train_index], shuffled_abuse_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_abuse.append(svc.predict(X_test))
+            y_test_abuse.append(y_test)
+
+        abuse_tn, abuse_fp, abuse_fn, abuse_tp = confusion_matrix(y_test_abuse, y_pred_abuse).ravel()
+        pred_abuse_accuracy = (abuse_tn + abuse_tp) / (abuse_tn + abuse_tp + abuse_fn + abuse_fp)
+
+        all_abuse_accuracies.append(pred_abuse_accuracy)
+
+    # plot a distribution of accuracy values
+    plt.hist(all_abuse_accuracies, bins='auto')
+    plt.show()
+    plt.savefig('abuse_permutation_accuracies.png')
+
+    ### NEGLECT
+    for i in range(1000):
+        idx = np.random.permutation(len(classify_neglect_df.target))
+        y = classify_neglect_df.target[idx]
+
+        shuffled_neglect_df = classify_neglect_df
+        shuffled_neglect_df.target = y
+
+        y_pred_neglect = []
+        y_test_neglect = []
+
+        for train_index, test_index in loo.split(shuffled_neglect_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = shuffled_neglect_df.data[train_index], shuffled_neglect_df.data[test_index]
+            y_train, y_test = shuffled_neglect_df.target[train_index], shuffled_neglect_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_neglect.append(svc.predict(X_test))
+            y_test_neglect.append(y_test)
+
+        neglect_tn, neglect_fp, neglect_fn, neglect_tp = confusion_matrix(y_test_neglect, y_pred_neglect).ravel()
+        pred_neglect_accuracy = (neglect_tn + neglect_tp) / (neglect_tn + neglect_tp + neglect_fn + neglect_fp)
+
+        all_neglect_accuracies.append(pred_neglect_accuracy)
+
+    # plot a distribution of accuracy values
+    plt.hist(all_neglect_accuracies, bins='auto')
+    plt.show()
+    plt.savefig('neglect_permutation_accuracies.png')
+
+    ## BOTH
+    for i in range(1000):
+        idx = np.random.permutation(len(classify_both_df.target))
+        y = classify_both_df.target[idx]
+
+        shuffled_both_df = classify_both_df
+        shuffled_both_df.target = y
+
+        y_pred_both = []
+        y_test_both = []
+
+        for train_index, test_index in loo.split(shuffled_both_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = shuffled_both_df.data[train_index], shuffled_both_df.data[test_index]
+            y_train, y_test = shuffled_both_df.target[train_index], shuffled_both_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_both.append(svc.predict(X_test))
+            y_test_both.append(y_test)
+
+        both_tn, both_fp, both_fn, both_tp = confusion_matrix(y_test_both, y_pred_both).ravel()
+        pred_both_accuracy = (both_tn + both_tp) / (both_tn + both_tp + both_fn + both_fp)
+
+        all_both_accuracies.append(pred_both_accuracy)
+
+    # plot a distribution of accuracy values
+    plt.hist(all_both_accuracies, bins='auto')
+    plt.show()
+    plt.savefig('both_permutation_accuracies.png')
 
 # save median values
 adv_chance = stats.median(all_adv_accuracies)
 abuse_chance = stats.median(all_abuse_accuracies)
 neglect_chance = stats.median(all_neglect_accuracies)
 both_chance = stats.median(all_both_accuracies)
+
+a = np.asarray([adv_chance, abuse_chance, neglect_chance, both_chance])
+np.savetxt("chance_levels.csv", a, delimiter=",")
+
+b = np.asarray([pred_adv_accuracy, pred_abuse_accuracy, pred_neglect_accuracy, pred_both_accuracy])
+np.savetxt("loo_accuracies.csv", b, delimiter=",")
+
+c = np.asarray([pred_abuse2neglect_accuracy, pred_abuse2both_accuracy, pred_neglect2abuse_accuracy, pred_neglect2both_accuracy, pred_both2abuse_accuracy, pred_both2neglect_accuracy])
+np.savetxt("pairwise_accuracies.csv", c, delimiter=",")
