@@ -5,6 +5,7 @@ import csv
 import pyreadr
 import numpy as np
 import statistics as stats
+from random import sample
 
 from sklearn.model_selection import LeaveOneOut, train_test_split, GridSearchCV, cross_val_score
 from sklearn.utils import Bunch
@@ -20,6 +21,7 @@ import pandas as pd
 # from sklearn.pipeline import Pipeline
 
 run_permutation = False
+run_sampling = True
 
 ### LOAD DATA ###
 
@@ -150,83 +152,133 @@ none_idx = np.asarray(none_idx)[0]
 # convert pandas dataframe into numpy array, and then delete and reconstitute
 np_beh_values = beh.values
 
-# Train and test abuse classifier with loo
-## abuse vs. none
-abuse_none_beh_values = np_beh_values[np.sort(np.concatenate([abuse_only_idx, none_idx]))]
-abuse_none_beh = pd.DataFrame(abuse_none_beh_values, columns = beh.columns)
-classify_abuse_df = base.Bunch(target_names='abuse',
-                               feature_names=feature_names,
-                               target=np.asarray(abuse_none_beh.abuse.astype(int)),
-                               data=data[np.sort(np.concatenate([abuse_only_idx, none_idx]))])
+# re-run classifier 1000x with shuffled target labels and save accuracy values
+all_abuse_accuracies = []
 
-y_pred_abuse = []
-y_test_abuse = []
+if run_sampling == True:
+    for i in range(1000):
+        # take a random subset of the none_idx so that they match the number of individuals that have experienced abuse
+        none_idx_subsample = sample(list(none_idx), len(abuse_only_idx))
 
-loo.get_n_splits(classify_abuse_df.data)
+        # Train and test abuse classifier with loo
+        ## abuse vs. none
+        abuse_none_beh_values = np_beh_values[np.sort(np.concatenate([abuse_only_idx, none_idx_subsample]))]
+        abuse_none_beh = pd.DataFrame(abuse_none_beh_values, columns = beh.columns)
+        classify_abuse_df = base.Bunch(target_names='abuse',
+                                       feature_names=feature_names,
+                                       target=np.asarray(abuse_none_beh.abuse.astype(int)),
+                                       data=data[np.sort(np.concatenate([abuse_only_idx, none_idx_subsample]))])
 
-for train_index, test_index in loo.split(classify_abuse_df.data):
-    print("TRAIN:", train_index, "TEST:", test_index)
-    X_train, X_test = classify_abuse_df.data[train_index], classify_abuse_df.data[test_index]
-    y_train, y_test = classify_abuse_df.target[train_index], classify_abuse_df.target[test_index]
-    svc.fit(X_train, y_train)
-    y_pred_abuse.append(svc.predict(X_test))
-    y_test_abuse.append(y_test)
+        y_pred_abuse = []
+        y_test_abuse = []
 
-abuse_tn, abuse_fp, abuse_fn, abuse_tp = confusion_matrix(y_test_abuse, y_pred_abuse).ravel()
-pred_abuse_accuracy = (abuse_tn + abuse_tp)/(abuse_tn + abuse_tp + abuse_fn + abuse_fp)
+        loo.get_n_splits(classify_abuse_df.data)
+
+        for train_index, test_index in loo.split(classify_abuse_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = classify_abuse_df.data[train_index], classify_abuse_df.data[test_index]
+            y_train, y_test = classify_abuse_df.target[train_index], classify_abuse_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_abuse.append(svc.predict(X_test))
+            y_test_abuse.append(y_test)
+
+        abuse_tn, abuse_fp, abuse_fn, abuse_tp = confusion_matrix(y_test_abuse, y_pred_abuse).ravel()
+        pred_abuse_accuracy = (abuse_tn + abuse_tp)/(abuse_tn + abuse_tp + abuse_fn + abuse_fp)
+
+        all_abuse_accuracies.append(pred_abuse_accuracy)
+
+    # plot a distribution of accuracy values
+    plt.hist(all_abuse_accuracies, bins='auto')
+    #plt.show()
+    plt.savefig('abuse_accuracies.png')
+
+plt.close()
 
 
-# Train and test neglect classifier with loo
-## neglect vs. none
-neglect_none_beh_values = np_beh_values[np.sort(np.concatenate([neglect_only_idx, none_idx]))]
-neglect_none_beh = pd.DataFrame(neglect_none_beh_values, columns = beh.columns)
-classify_neglect_df = base.Bunch(target_names='neglect',
-                               feature_names=feature_names,
-                               target=np.asarray(neglect_none_beh.neglect.astype(int)),
-                               data=data[np.sort(np.concatenate([neglect_only_idx, none_idx]))])
+# re-run classifier 1000x with shuffled target labels and save accuracy values
+all_neglect_accuracies = []
 
-y_pred_neglect = []
-y_test_neglect = []
+if run_sampling == True:
+    for i in range(1000):
+        # take a random subset of the none_idx so that they match the number of individuals that have experienced abuse
+        none_idx_subsample = sample(list(none_idx), len(neglect_only_idx))
 
-loo.get_n_splits(classify_neglect_df.data)
 
-for train_index, test_index in loo.split(classify_neglect_df.data):
-    print("TRAIN:", train_index, "TEST:", test_index)
-    X_train, X_test = classify_neglect_df.data[train_index], classify_neglect_df.data[test_index]
-    y_train, y_test = classify_neglect_df.target[train_index], classify_neglect_df.target[test_index]
-    svc.fit(X_train, y_train)
-    y_pred_neglect.append(svc.predict(X_test))
-    y_test_neglect.append(y_test)
+        # Train and test neglect classifier with loo
+        ## neglect vs. none
+        neglect_none_beh_values = np_beh_values[np.sort(np.concatenate([neglect_only_idx, none_idx_subsample]))]
+        neglect_none_beh = pd.DataFrame(neglect_none_beh_values, columns = beh.columns)
+        classify_neglect_df = base.Bunch(target_names='neglect',
+                                       feature_names=feature_names,
+                                       target=np.asarray(neglect_none_beh.neglect.astype(int)),
+                                       data=data[np.sort(np.concatenate([neglect_only_idx, none_idx_subsample]))])
 
-neglect_tn, neglect_fp, neglect_fn, neglect_tp = confusion_matrix(y_test_neglect, y_pred_neglect).ravel()
-pred_neglect_accuracy = (neglect_tn + neglect_tp)/(neglect_tn + neglect_tp + neglect_fn + neglect_fp)
+        y_pred_neglect = []
+        y_test_neglect = []
 
-# Train and test both classifier with loo
-## both vs. none
-both_none_beh_values = np_beh_values[np.sort(np.concatenate([both_idx, none_idx]))]
-both_none_beh = pd.DataFrame(both_none_beh_values, columns = beh.columns)
-classify_both_df = base.Bunch(target_names='both',
-                               feature_names=feature_names,
-                               target=np.asarray(both_none_beh.polyvictimization.astype(int)),
-                               data=data[np.sort(np.concatenate([both_idx, none_idx]))])
+        loo.get_n_splits(classify_neglect_df.data)
 
-y_pred_both = []
-y_test_both = []
+        for train_index, test_index in loo.split(classify_neglect_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = classify_neglect_df.data[train_index], classify_neglect_df.data[test_index]
+            y_train, y_test = classify_neglect_df.target[train_index], classify_neglect_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_neglect.append(svc.predict(X_test))
+            y_test_neglect.append(y_test)
 
-loo.get_n_splits(classify_both_df.data)
+            neglect_tn, neglect_fp, neglect_fn, neglect_tp = confusion_matrix(y_test_neglect, y_pred_neglect).ravel()
+            pred_neglect_accuracy = (neglect_tn + neglect_tp)/(neglect_tn + neglect_tp + neglect_fn + neglect_fp)
 
-for train_index, test_index in loo.split(classify_both_df.data):
-    print("TRAIN:", train_index, "TEST:", test_index)
-    X_train, X_test = classify_both_df.data[train_index], classify_both_df.data[test_index]
-    y_train, y_test = classify_both_df.target[train_index], classify_both_df.target[test_index]
-    svc.fit(X_train, y_train)
-    y_pred_both.append(svc.predict(X_test))
-    y_test_both.append(y_test)
+            all_neglect_accuracies.append(pred_neglect_accuracy)
 
-both_tn, both_fp, both_fn, both_tp = confusion_matrix(y_test_both, y_pred_both).ravel()
-pred_both_accuracy = (both_tn + both_tp)/(both_tn + both_tp + both_fn + both_fp)
+        # plot a distribution of accuracy values
+        plt.hist(all_neglect_accuracies, bins='auto')
+        plt.show()
+        plt.savefig('neglect_accuracies.png')
 
-## CROSS-CATEGORY
+plt.close()
+
+
+all_both_accuracies = []
+
+if run_sampling == True:
+    for i in range(100):
+        # take a random subset of the none_idx so that they match the number of individuals that have experienced abuse
+        none_idx_subsample = sample(list(none_idx), len(both_idx))
+
+        # Train and test both classifier with loo
+        ## both vs. none
+        both_none_beh_values = np_beh_values[np.sort(np.concatenate([both_idx, none_idx_subsample]))]
+        both_none_beh = pd.DataFrame(both_none_beh_values, columns = beh.columns)
+        classify_both_df = base.Bunch(target_names='both',
+                                       feature_names=feature_names,
+                                       target=np.asarray(both_none_beh.polyvictimization.astype(int)),
+                                       data=data[np.sort(np.concatenate([both_idx, none_idx_subsample]))])
+
+        y_pred_both = []
+        y_test_both = []
+
+        loo.get_n_splits(classify_both_df.data)
+
+        for train_index, test_index in loo.split(classify_both_df.data):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = classify_both_df.data[train_index], classify_both_df.data[test_index]
+            y_train, y_test = classify_both_df.target[train_index], classify_both_df.target[test_index]
+            svc.fit(X_train, y_train)
+            y_pred_both.append(svc.predict(X_test))
+            y_test_both.append(y_test)
+
+        both_tn, both_fp, both_fn, both_tp = confusion_matrix(y_test_both, y_pred_both).ravel()
+        pred_both_accuracy = (both_tn + both_tp)/(both_tn + both_tp + both_fn + both_fp)
+
+        all_both_accuracies.append(pred_both_accuracy)
+
+        # plot a distribution of accuracy values
+    plt.hist(all_both_accuracies, bins='auto')
+    plt.show()
+    plt.savefig('both_accuracies.png')
+
+## CROSS-CATEGORY - NOTE: haven't implemented the random sampling, since there doesn't seem to be a point if it can't predict itself
 
 ## TRAINING: ABUSE
 
