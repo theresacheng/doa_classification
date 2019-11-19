@@ -1,0 +1,211 @@
+---
+title: "make_transformed_gordon_comm_cors"
+author: "Theresa Cheng"
+date: "11/11/2019"
+output: html_document
+---
+
+Note that portions of this data cleaning script were originally written for network_sci_project.Rmd. This is the most updated version, including 1) Fishers-Z transformations of the gordon correlation matrices, and 2) within-protocol Z-transformations of the community-level correlation values. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache=TRUE)
+
+## Load required packages ##
+packages <-  c("lme4", "nlme", "zoo", "plyr", "dplyr", "tidyr", "knitr",
+              "parallel", "data.table", "lubridate","psych", "ggplot2", "igraph", "brainGraph")
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())))  
+}
+lapply(packages, library, character.only = TRUE)
+
+# set scientific notation
+options(scipen=6)
+```
+
+```{r load data}
+
+subject_list_full_IDs <- read.csv("/Users/theresacheng/Box/projects/dim_of_adversity/subjects_across_samples/inc_subj_full_ids.csv") # with full path subject IDs
+subject_list_full_IDs <- as.character(subject_list_full_IDs$subject_id)
+
+subject_list <- read.csv("/Users/theresacheng/Box/projects/dim_of_adversity/subjects_across_samples/included_subjects.csv") # with full path subject IDs
+subject_list <- as.character(subject_list$subject_id)
+  
+beh_data <- readRDS("/Users/theresacheng/Box/projects/dim_of_adversity/group_models/all_studies_beh_vars.rds")
+beh_data$sub <- subject_list_full_IDs
+
+#beh_data <- beh_data[, c("sub", "ea", "pa", "sa", "en", "pn", "abuse", "neglect", "study")]
+beh_data$abuse <- as.numeric(beh_data$abuse)
+beh_data$neglect <- as.numeric(beh_data$neglect)
+
+beh_data <- beh_data %>% 
+  mutate(polyvictimization =
+           case_when(abuse == 1 & neglect == 1 ~ 1,
+             TRUE ~ 0),
+         emotional = 
+           case_when(ea == 1 & en == 1 ~ 1,
+             TRUE ~ 0),
+         physical = 
+           case_when(pa == 1 & pn == 1 ~ 1,
+            TRUE ~ 0))
+
+#saveRDS(beh_data, "/Users/theresacheng/projects/doa_classification/data/beh_data.RDS")
+```
+
+```{r get parcel info}
+
+# get list of parcel names
+parcellation_list_dir = '~/projects/dsnlab/TDS/TDS_scripts/sMRI/templates/lists/'
+
+lhparcels <- as.data.frame(read.table(paste0(parcellation_list_dir,"lhlabels.txt"))[[1]]) %>%
+  filter(grepl("lh.Parcel", .[[1]])) %>%
+  mutate(parcel_name=.[[1]]) %>% 
+  select(parcel_name)
+
+temp <- stringr::str_split(lhparcels$parcel_name, "_") 
+temp <- sapply(temp, tail)
+lhparcels$number <- as.numeric(temp[2,])
+lhparcels$parcel_name <- as.character(lhparcels$parcel_name[order(lhparcels$number)])
+
+rhparcels <- as.data.frame(read.table(paste0(parcellation_list_dir,"rhlabels.txt"))[[1]]) %>%
+  filter(grepl("rh.Parcel", .[[1]])) %>%
+  mutate(parcel_name=.[[1]]) %>%
+  select(parcel_name)
+ 
+temp <- stringr::str_split(rhparcels$parcel_name, "_") 
+temp <- sapply(temp, tail)
+rhparcels$number <- as.numeric(temp[2,])
+rhparcels$parcel_name <- as.character(rhparcels$parcel_name[order(rhparcels$number)])
+
+subcorticalparcels <- as.data.frame(read.table(paste0(parcellation_list_dir,"hcp_subcortical.txt")))
+colnames(subcorticalparcels) = "parcel_name"
+subcorticalparcels$parcel_name = as.character(subcorticalparcels$parcel_name)
+subcorticalparcels$number = 334:352
+
+#gordon <- c(lhparcels$parcel_name, rhparcels$parcel_name, subcorticalparcels$parcel_name)
+
+parcels <- rbind(lhparcels, rhparcels, subcorticalparcels) #%>% 
+parcels <- parcels[order(parcels$number), ]
+
+# get list of parcel names with community labels
+community_list <- read.csv("~/projects/dsnlab/TDS/TDS_scripts/rsfMRI/Cheng_SAP/Parcels/Parcels.csv")
+community_list$number = as.character(community_list$ParcelID)
+
+labelled_parcels <- full_join(parcels, community_list, by = c("number" = "ParcelID")) %>% 
+  dplyr::select(c(parcel_name, number, Community))
+```
+
+```{r generate subject_pconns} 
+make_pconns = FALSE
+
+read_pconn <- function(subject_id){
+  read.csv(paste0("/Users/theresacheng/Box/projects/dim_of_adversity/data/gordon_pconn/", subject_id, "_gordon_pconn.csv"), header = FALSE)
+}
+
+make_labelled_pconn <- function(subject_id){
+  subj_pconn <-  read_pconn(subject_id)
+  colnames(subj_pconn) <- labelled_parcels$parcel_name
+  subj_pconn$parcel <-  labelled_parcels$parcel_name
+  subj_pconn$subject_id <-  subject_id
+  return(subj_pconn)
+} 
+
+# if (make_pconns == TRUE){
+#   pconn_list <- lapply(subject_list_full_IDs, make_labelled_pconn)
+#   gordon_pconns <- rbindlist(pconn_list)
+#   saveRDS(gordon_pconns, "/Users/theresacheng/Box/projects/dim_of_adversity/data/gordon_pconns.RDS")
+# } else {
+#   gordon_pconns <- readRDS("/Users/theresacheng/Box/projects/dim_of_adversity/data/gordon_pconns.RDS")
+# }
+
+```
+
+```{r generate community-level conns "comm_conns"}
+make_comm_cor = FALSE
+
+make_subj_comm_cor <- function(subject_id){
+  # set up pconn
+   subj_pconn <- read_pconn(subject_id)
+   colnames(subj_pconn) <- labelled_parcels$parcel_name
+   subj_pconn$parcel <-  labelled_parcels$parcel_name
+   
+  # get pconn in long format
+   subj_pconn_long <- gather(subj_pconn, key = "to", value = "cor", -parcel)
+   subj_pconn_long <- filter(subj_pconn_long, parcel != to) # remove correlations with self
+   colnames(subj_pconn_long)[1] = "from"
+   subj_pconn_long$from_community = labelled_parcels[match(subj_pconn_long$from, labelled_parcels$parcel_name), "Community"]
+   subj_pconn_long$to_community = labelled_parcels[match(subj_pconn_long$to, labelled_parcels$parcel_name), "Community"]
+   
+   # Fisher Z transform the gordon parcel to parcel correlation values
+  subj_pconn_long$cor <-  DescTools::FisherZ(subj_pconn_long$cor)
+  
+   # calculate between and within matrix connectivity
+   comm_conn <- subj_pconn_long %>% 
+     filter(!(is.na(.$from_community))) %>%
+     filter(!(is.na(.$to_community))) %>% 
+     group_by(to_community, from_community) %>% 
+     summarize(average_cor = mean(abs(cor)))
+   
+   # format
+   comm_conn <- comm_conn[!duplicated(t(apply(comm_conn[1:2], 1, sort))), ] # remove duplicates
+   comm_conn$from_to <- paste(comm_conn$from_community, comm_conn$to_community, sep = "_")
+   comm_conn_wide <- spread(comm_conn[, 3:4], key = from_to, value = average_cor)
+    comm_conn_wide$subject_id <- subject_id
+    
+    return(comm_conn_wide)
+}
+
+comm_cors <- make_subj_comm_cor(subject_list_full_IDs[102]) # initialize
+
+if (make_comm_cor == TRUE){
+ for (i in 1:length(subject_list_full_IDs)){
+   comm_conn_wide = make_subj_comm_cor(subject_list_full_IDs[i])
+   comm_cors[i, ] <- comm_conn_wide
+ } 
+} else {
+  comm_cors <- readRDS("/Users/theresacheng/Box/projects/dim_of_adversity/data/comm_cors_fisher_z.RDS")
+}
+
+#saveRDS(comm_cors, "/Users/theresacheng/Box/projects/dim_of_adversity/data/comm_cors_fisher_z.RDS")
+
+# z score by study 
+comm_cors <- comm_cors %>% 
+  mutate(study = case_when(
+    startsWith(subject_id, "1148") ~ "MINA",
+    startsWith(subject_id, "N") ~ "K_study",
+    startsWith(subject_id, "T") ~ "K_study"
+  ))
+comm_cors$study <- ifelse(is.na(comm_cors$study), "TDS", comm_cors$study)
+comm_cors$study <- factor(comm_cors$study)
+
+# create grouped (by study) and ungrouped z-scores
+comm_cors_z <- comm_cors %>% 
+  gather(key = "from_to", value = "cor", -c(subject_id, study)) %>% 
+  group_by(study) %>%
+  mutate(z_score_group = round(scale(cor, center = TRUE, scale = TRUE), 3)) %>% 
+  ungroup %>% 
+  mutate(z_score_ungrouped = round(scale(cor, center = TRUE, scale = TRUE), 3))
+
+# sanity check: plot differences in grouped and ungrouped z_score values 
+gridExtra::grid.arrange(
+  grobs = setNames(names(comm_cors_z)[c(4,6,5)], names(comm_cors_z)[c(4,6,5)]) %>% 
+    purrr::map(~ ggplot(comm_cors_z %>% filter(stringr::str_detect(from_to, "^Auditory")) %>%
+                          mutate(group = paste(study, from_to, sep = "_")),
+                        aes_string(.x, colour="group")) + geom_density()), 
+  ncol=1)
+
+### make the data wide for input into python script
+comm_cors_z$subject_id <- as.factor(comm_cors_z$subject_id)
+
+comm_cors_wide <- comm_cors_z %>% 
+  select(-c("study", "z_score_group", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = cor)
+
+write.csv(comm_cors_wide, "/Users/theresacheng/projects/doa_classification/data/comm_cors.csv", row.names = FALSE) 
+
+comm_cors_z_wide <- comm_cors_z %>% 
+  select(-c("study", "cor", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
+
+write.csv(comm_cors_z_wide[1:length(comm_cors_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z.csv", row.names = FALSE)
+```
+
