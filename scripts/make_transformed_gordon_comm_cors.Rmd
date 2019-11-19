@@ -167,20 +167,13 @@ if (make_comm_cor == TRUE){
 
 #saveRDS(comm_cors, "/Users/theresacheng/Box/projects/dim_of_adversity/data/comm_cors_fisher_z.RDS")
 
-# z score by study 
-comm_cors <- comm_cors %>% 
-  mutate(study = case_when(
-    startsWith(subject_id, "1148") ~ "MINA",
-    startsWith(subject_id, "N") ~ "K_study",
-    startsWith(subject_id, "T") ~ "K_study"
-  ))
-comm_cors$study <- ifelse(is.na(comm_cors$study), "TDS", comm_cors$study)
-comm_cors$study <- factor(comm_cors$study)
+# z score by protocol
+comm_cors$protocol <- as.factor(beh_data$protocol)
 
 # create grouped (by study) and ungrouped z-scores
 comm_cors_z <- comm_cors %>% 
-  gather(key = "from_to", value = "cor", -c(subject_id, study)) %>% 
-  group_by(study) %>%
+  gather(key = "from_to", value = "cor", -c(subject_id, protocol)) %>% 
+  group_by(protocol) %>%
   mutate(z_score_group = round(scale(cor, center = TRUE, scale = TRUE), 3)) %>% 
   ungroup %>% 
   mutate(z_score_ungrouped = round(scale(cor, center = TRUE, scale = TRUE), 3))
@@ -189,7 +182,7 @@ comm_cors_z <- comm_cors %>%
 gridExtra::grid.arrange(
   grobs = setNames(names(comm_cors_z)[c(4,6,5)], names(comm_cors_z)[c(4,6,5)]) %>% 
     purrr::map(~ ggplot(comm_cors_z %>% filter(stringr::str_detect(from_to, "^Auditory")) %>%
-                          mutate(group = paste(study, from_to, sep = "_")),
+                          mutate(group = paste(protocol, from_to, sep = "_")),
                         aes_string(.x, colour="group")) + geom_density()), 
   ncol=1)
 
@@ -197,15 +190,15 @@ gridExtra::grid.arrange(
 comm_cors_z$subject_id <- as.factor(comm_cors_z$subject_id)
 
 comm_cors_wide <- comm_cors_z %>% 
-  select(-c("study", "z_score_group", "z_score_ungrouped")) %>% 
+  select(-c("protocol", "z_score_group", "z_score_ungrouped")) %>% 
   pivot_wider(id_cols = subject_id, names_from = from_to, values_from = cor)
 
-write.csv(comm_cors_wide, "/Users/theresacheng/projects/doa_classification/data/comm_cors.csv", row.names = FALSE) 
+write.csv(comm_cors_wide, "/Users/theresacheng/projects/doa_classification/data/comm_cors.csv", row.names = FALSE) # fishers z transformed correlation values
 
 comm_cors_z_wide <- comm_cors_z %>% 
-  select(-c("study", "cor", "z_score_ungrouped")) %>% 
+  select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
   pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
 
-write.csv(comm_cors_z_wide[1:length(comm_cors_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z.csv", row.names = FALSE)
+write.csv(comm_cors_z_wide[1:length(comm_cors_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z.csv", row.names = FALSE) # z transformed fishers z values
 ```
 
