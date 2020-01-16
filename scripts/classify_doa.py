@@ -14,12 +14,12 @@ loo = LeaveOneOut()
 from sklearn.svm import LinearSVC, SVC
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.datasets import base
+from sklearn.feature_selection import SelectPercentile, f_classif
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# from sklearn.pipeline import Pipeline
-
+from sklearn.pipeline import make_pipeline
 run_permutation = False
 run_sampling = True
 
@@ -85,20 +85,24 @@ loo.get_n_splits(classify_adv_df.data)
 
 # fit models
 svc = LinearSVC()
+feat_sel = SelectPercentile(f_classif, 15)
+
 y_pred_all = []
 y_test_all = []
 
-for train_index, test_index in loo.split(classify_adv_df.data):
+for train_index, test_index in loo.split(classify_adv_df.data[0:20,]):
     print("TRAIN:", train_index, "TEST:", test_index)
     X_train, X_test = classify_adv_df.data[train_index], classify_adv_df.data[test_index]
     y_train, y_test = classify_adv_df.target[train_index], classify_adv_df.target[test_index]
-    svc.fit(X_train, y_train)
+    feat_sel.fit(X_train, y_train)
+    X_train_new = svc.transform(X_train)
+    print(feat_sel.get_support(indices=True))
     y_pred_all.append(svc.predict(X_test))
     y_test_all.append(y_test)
 
 adv_tn, adv_fp, adv_fn, adv_tp = confusion_matrix(y_test_all, y_pred_all).ravel()
 pred_adv_accuracy = (adv_tn + adv_tp)/(adv_tn + adv_tp + adv_fn + adv_fp)
-print('Adversity status accuracy:', round(pred_adv_accuracy,2))
+print('Adversity status accuracy:', round(pred_adv_accuracy, 2))
 
 # Conduct control analyses
 all_adv_accuracies = []
@@ -119,7 +123,7 @@ if run_permutation == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = shuffled_adv_df.data[train_index], shuffled_adv_df.data[test_index]
             y_train, y_test = shuffled_adv_df.target[train_index], shuffled_adv_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_all.append(svc.predict(X_test))
             y_test_all.append(y_test)
 
@@ -178,7 +182,7 @@ if run_sampling == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = classify_abuse_df.data[train_index], classify_abuse_df.data[test_index]
             y_train, y_test = classify_abuse_df.target[train_index], classify_abuse_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_abuse.append(svc.predict(X_test))
             y_test_abuse.append(y_test)
 
@@ -189,12 +193,12 @@ if run_sampling == True:
 
     # plot a distribution of accuracy values
     plt.hist(all_abuse_accuracies, bins='auto')
-    #plt.show()
+    plt.show()
     plt.savefig('output/abuse_accuracies.png')
 
 plt.close()
 
-print('Abuse status accuracy:', round(stats.mean(all_abuse_accuracies),2))
+print('Abuse status accuracy:', round(stats.mean(all_abuse_accuracies), 2))
 
 # re-run classifier 1000x with shuffled target labels and save accuracy values
 all_neglect_accuracies = []
@@ -223,7 +227,7 @@ if run_sampling == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = classify_neglect_df.data[train_index], classify_neglect_df.data[test_index]
             y_train, y_test = classify_neglect_df.target[train_index], classify_neglect_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_neglect.append(svc.predict(X_test))
             y_test_neglect.append(y_test)
 
@@ -232,7 +236,7 @@ if run_sampling == True:
 
         all_neglect_accuracies.append(pred_neglect_accuracy)
 
-        # plot a distribution of accuracy values
+    # plot a distribution of accuracy values
     plt.hist(all_neglect_accuracies, bins='auto')
     plt.show()
     plt.savefig('output/neglect_accuracies.png')
@@ -267,7 +271,7 @@ if run_sampling == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = classify_both_df.data[train_index], classify_both_df.data[test_index]
             y_train, y_test = classify_both_df.target[train_index], classify_both_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_both.append(svc.predict(X_test))
             y_test_both.append(y_test)
 
@@ -296,7 +300,7 @@ y_test_abuse2neglect = []
 
 X_train, X_test = classify_abuse_df.data, classify_neglect_df.data
 y_train, y_test = classify_abuse_df.target, classify_neglect_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_abuse2neglect.append(svc.predict(X_test))
 y_test_abuse2neglect.append(y_test)
 
@@ -309,7 +313,7 @@ y_test_abuse2both = []
 
 X_train, X_test = classify_abuse_df.data, classify_both_df.data
 y_train, y_test = classify_abuse_df.target, classify_both_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_abuse2both.append(svc.predict(X_test))
 y_test_abuse2both.append(y_test)
 
@@ -324,7 +328,7 @@ y_test_neglect2abuse = []
 
 X_train, X_test = classify_neglect_df.data, classify_abuse_df.data
 y_train, y_test = classify_neglect_df.target, classify_abuse_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_neglect2abuse.append(svc.predict(X_test))
 y_test_neglect2abuse.append(y_test)
 
@@ -338,7 +342,7 @@ y_test_neglect2both = []
 
 X_train, X_test = classify_neglect_df.data, classify_both_df.data
 y_train, y_test = classify_neglect_df.target, classify_both_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_neglect2both.append(svc.predict(X_test))
 y_test_neglect2both.append(y_test)
 
@@ -354,7 +358,7 @@ y_test_both2abuse = []
 
 X_train, X_test = classify_both_df.data, classify_abuse_df.data
 y_train, y_test = classify_both_df.target, classify_abuse_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_both2abuse.append(svc.predict(X_test))
 y_test_both2abuse.append(y_test)
 
@@ -367,7 +371,7 @@ y_test_both2neglect = []
 
 X_train, X_test = classify_neglect_df.data, classify_both_df.data
 y_train, y_test = classify_neglect_df.target, classify_both_df.target
-svc.fit(X_train, y_train)
+svc_selected.fit(X_train, y_train)
 y_pred_both2neglect.append(svc.predict(X_test))
 y_test_both2neglect.append(y_test)
 
@@ -401,7 +405,7 @@ if run_permutation == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = shuffled_adv_df.data[train_index], shuffled_adv_df.data[test_index]
             y_train, y_test = shuffled_adv_df.target[train_index], shuffled_adv_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_all.append(svc.predict(X_test))
             y_test_all.append(y_test)
 
@@ -431,7 +435,7 @@ if run_permutation == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = shuffled_abuse_df.data[train_index], shuffled_abuse_df.data[test_index]
             y_train, y_test = shuffled_abuse_df.target[train_index], shuffled_abuse_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_abuse.append(svc.predict(X_test))
             y_test_abuse.append(y_test)
 
@@ -460,7 +464,7 @@ if run_permutation == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = shuffled_neglect_df.data[train_index], shuffled_neglect_df.data[test_index]
             y_train, y_test = shuffled_neglect_df.target[train_index], shuffled_neglect_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_neglect.append(svc.predict(X_test))
             y_test_neglect.append(y_test)
 
@@ -489,7 +493,7 @@ if run_permutation == True:
             print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = shuffled_both_df.data[train_index], shuffled_both_df.data[test_index]
             y_train, y_test = shuffled_both_df.target[train_index], shuffled_both_df.target[test_index]
-            svc.fit(X_train, y_train)
+            svc_selected.fit(X_train, y_train)
             y_pred_both.append(svc.predict(X_test))
             y_test_both.append(y_test)
 
