@@ -193,12 +193,61 @@ comm_cors_wide <- comm_cors_z %>%
   select(-c("protocol", "z_score_group", "z_score_ungrouped")) %>% 
   pivot_wider(id_cols = subject_id, names_from = from_to, values_from = cor)
 
-write.csv(comm_cors_wide, "/Users/theresacheng/projects/doa_classification/data/comm_cors.csv", row.names = FALSE) # fishers z transformed correlation values
+#write.csv(comm_cors_wide, "/Users/theresacheng/projects/doa_classification/data/comm_cors.csv", row.names = FALSE) # fishers z transformed correlation values
 
 comm_cors_z_wide <- comm_cors_z %>% 
   select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
   pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
 
-write.csv(comm_cors_z_wide[1:length(comm_cors_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z.csv", row.names = FALSE) # z transformed fishers z values
+#write.csv(comm_cors_z_wide[1:length(comm_cors_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z.csv", row.names = FALSE) # z transformed fishers z values
 ```
 
+```{r apply human-selected filtering z_scored comm_cors}
+
+# name the from_to community correlations to keep
+human_sel_feat <- c("Auditory", "FrontoParietal", "SMhand", "SMmouth", "Visual")
+human_sel_from_to <- paste(rep(human_sel_feat, each = length(human_sel_feat)), human_sel_feat, sep = "_")
+
+hs_feat_comm_cors_z <- comm_cors_z %>% 
+  filter(from_to %in% human_sel_from_to) # note that some of the human_sel_from_to contains the same words in the opposite order and aren't in from_to, this is okay
+
+hs_feat_comm_cors_z_wide <- hs_feat_comm_cors_z %>% 
+  select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
+
+#write.csv(hs_feat_comm_cors_z_wide[1:length(hs_feat_comm_cors_z_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z_hs_feat.csv", row.names = FALSE)
+```
+
+```{r generate MINA2 z-scored comm_cors and beh vars}
+
+comm_cors_z_MINA <- comm_cors_z %>% 
+  filter(protocol == 1)
+
+comm_cors_z_MINA_wide <- comm_cors_z_MINA %>% 
+  select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
+
+beh_MINA <- beh_data %>%
+  filter(study == "MINA2")
+
+#write.csv(comm_cors_z_MINA_wide[1:length(comm_cors_z_MINA_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z_MINA.csv", row.names = FALSE)
+
+#saveRDS(beh_MINA, "/Users/theresacheng/projects/doa_classification/data/beh_MINA.RDS")
+```
+
+```{r generate TDS z-scored comm_cors and beh vars}
+
+comm_cors_z_TDS <- comm_cors_z %>% 
+  filter(protocol == 2)
+
+comm_cors_z_TDS_wide <- comm_cors_z_TDS %>% 
+  select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
+
+beh_TDS <- beh_data %>%
+  filter(study == "TDS")
+
+#write.csv(comm_cors_z_TDS_wide[1:length(comm_cors_z_TDS_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z_TDS.csv", row.names = FALSE)
+
+#saveRDS(beh_TDS, "/Users/theresacheng/projects/doa_classification/data/beh_TDS.RDS")
+```
