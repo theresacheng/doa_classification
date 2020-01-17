@@ -251,3 +251,20 @@ beh_TDS <- beh_data %>%
 
 #saveRDS(beh_TDS, "/Users/theresacheng/projects/doa_classification/data/beh_TDS.RDS")
 ```
+
+```{r generate TDS z-scored comm_cors and beh vars}
+
+comm_cors_z_K_study <- comm_cors_z %>% 
+  filter(protocol == 3 | protocol == 4)
+
+comm_cors_z_K_study_wide <- comm_cors_z_K_study %>% 
+  select(-c("protocol", "cor", "z_score_ungrouped")) %>% 
+  pivot_wider(id_cols = subject_id, names_from = from_to, values_from = z_score_group)
+
+beh_K_study <- beh_data %>%
+  filter(study == "K_study")
+
+write.csv(comm_cors_z_K_study_wide[1:length(comm_cors_z_K_study_wide)], "/Users/theresacheng/projects/doa_classification/data/comm_cors_z_K_study.csv", row.names = FALSE)
+
+saveRDS(beh_K_study, "/Users/theresacheng/projects/doa_classification/data/beh_K_study.RDS")
+```
